@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no"/>
+<title>Kraibe Clientes</title>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Kraibe Clientes"/>
+<meta name="theme-color" content="#0D364A"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<!--
+  IMPLEMENTACIÓN REAL — sin datos mock, sin selector de rol de demostración.
+  Todo dato viene de Supabase con RLS activa (ver supabase/migrations/).
+  La apertura de hardware llama a la Edge Function access-open
+  (ver supabase/functions/access-open/) — nunca se llama al relé/vendor
+  directo desde el navegador, ni se guarda ningún secreto aquí.
+
+  CONFIGURACIÓN REQUERIDA antes de servir este archivo (ver CONFIG abajo):
+  SUPABASE_URL y SUPABASE_ANON_KEY del proyecto real vtmutlmtwsxpldvrtnbx.
+  Ambos son públicos por diseño (la anon key es segura de exponer: la
+  seguridad real la da RLS, no el secreto de la key).
+-->
+<style>
+:root{
+  --teal:#33AEB3; --teal-700:#1A6F73; --teal-300:#7FCED1; --teal-50:#EAF7F8;
+  --navy:#0D364A; --navy-600:#1F4D63; --navy-400:#476A7D; --navy-50:#E8EEF2;
+  --lime:#CFEE9E;
+  --n50:#FAF8F6; --n100:#F2EEEB; --n200:#E4DFDC; --n400:#A8A19B; --n600:#5B544F; --n900:#1A1815;
+  --ok:#1F7A53; --warn:#9C6B14; --err:#A8412E; --info:#2A5E7E;
+  --r:12px; --shadow:0 1px 2px rgba(13,54,74,.06),0 4px 14px rgba(13,54,74,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{overflow-x:hidden}
+body{font-family:Manrope,system-ui,sans-serif;background:var(--n50);color:var(--navy);font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;min-height:100dvh;overflow-x:hidden}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+.mono{font-family:'JetBrains Mono',monospace;word-break:break-word}
+.hide{display:none !important}
+
+/* ---------- LOGIN ---------- */
+#login{position:fixed;inset:0;background:linear-gradient(150deg,#0D364A 0%,#143F55 55%,#0F3B52 100%);display:flex;align-items:center;justify-content:center;z-index:50;padding:calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch}
+.login-card{width:100%;max-width:400px;background:#fff;border-radius:16px;padding:36px 32px;box-shadow:0 24px 60px rgba(0,0,0,.28)}
+.wordmark{font-weight:800;letter-spacing:-.02em;display:flex;align-items:center;gap:10px}
+.iso{width:26px;height:30px;flex:0 0 auto}
+.login-card h1{font-size:22.5px;font-weight:800;margin:20px 0 4px;letter-spacing:-.02em}
+.login-card p{color:var(--navy-400);font-size:14px;margin-bottom:22px}
+label{display:block;font-size:12px;font-weight:600;color:var(--navy-600);margin-bottom:6px}
+input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--n200);border-radius:10px;font-family:inherit;font-size:14px;background:#fff;color:var(--navy);outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--teal);box-shadow:0 0 0 3px rgba(51,174,179,.22)}
+.field{margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 16px;border-radius:10px;font-weight:600;font-size:14px}
+.btn-primary{background:var(--teal-700);color:#fff;width:100%}
+.btn-primary:disabled{background:var(--n200);color:var(--n400)}
+.btn-ghost{border:1px solid var(--n200);background:#fff;color:var(--navy-600)}
+.btn-sm{padding:7px 11px;font-size:13px;border-radius:9px}
+.legal{margin-top:16px;font-size:11px;color:var(--n400);text-align:center}
+.ok-msg{color:var(--ok);font-size:13px;margin-top:10px}
+.err-msg{color:var(--err);font-size:13px;margin-top:10px}
+
+/* ---------- SHELL ---------- */
+#app{display:none;min-height:100vh}
+.topbar{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:env(safe-area-inset-top) 18px 0;height:calc(58px + env(safe-area-inset-top))}
+.topbar .wordmark{color:#fff;font-size:16px}
+.tenant{margin-left:auto;font-size:13px;font-weight:600;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:6px 11px;border-radius:9px}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--teal-700);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
+.layout{display:flex;min-height:calc(100vh - 58px)}
+.side{width:236px;flex:0 0 auto;background:#fff;border-right:1px solid var(--n200);padding:14px 12px;display:flex;flex-direction:column;gap:2px}
+.side .cap{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--n400);padding:14px 10px 6px}
+.nav{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;font-size:14px;font-weight:600;color:var(--navy-600);width:100%;text-align:left}
+.nav:hover{background:var(--n100)}
+.nav.on{background:var(--teal-50);color:var(--teal-700)}
+.main{flex:1;padding:24px 28px 60px;max-width:1180px}
+h2.page{font-size:22.5px;font-weight:800;letter-spacing:-.02em}
+.sub{color:var(--navy-400);font-size:14px;margin-top:2px;margin-bottom:20px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(2,1fr)} .g3{grid-template-columns:repeat(3,1fr)}
+.card{background:#fff;border:1px solid var(--n200);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.card h3{font-size:15px;font-weight:700;margin-bottom:2px}
+.kpi .lbl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--n400)}
+.kpi .val{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-top:6px}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px}
+.b-ok{background:#E6F2EC;color:var(--ok)} .b-warn{background:#FBF1DE;color:var(--warn)}
+.b-err{background:#F7E7E3;color:var(--err)} .b-info{background:var(--navy-50);color:var(--info)}
+.b-teal{background:var(--teal-50);color:var(--teal-700)}
+
+.dev{display:flex;flex-direction:column;gap:12px}
+.dev-head{display:flex;align-items:flex-start;justify-content:space-between;gap:11px;flex-wrap:wrap}
+.dev .meta{font-size:12px;color:var(--navy-400)}
+.open-btn{background:var(--teal-700);color:#fff;padding:12px;border-radius:10px;font-weight:700;font-size:14px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px}
+.open-btn:disabled{background:var(--n200);color:var(--n400);cursor:not-allowed}
+.open-btn.done{background:var(--ok)}
+
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--n400);padding:0 10px 9px;border-bottom:1px solid var(--n200)}
+td{padding:11px 10px;border-bottom:1px solid var(--n100);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+.tbl-wrap{background:#fff;border:1px solid var(--n200);border-radius:var(--r);padding:14px 6px 6px;box-shadow:var(--shadow)}
+.link{color:var(--teal-700);font-weight:600;cursor:pointer}
+
+.mask{position:fixed;inset:0;background:rgba(13,54,74,.42);display:none;align-items:center;justify-content:center;z-index:40;padding:20px}
+.mask.on{display:flex}
+.modal{background:#fff;border-radius:14px;width:100%;max-width:520px;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.24);max-height:90vh;overflow:auto}
+.modal h3{font-size:18.75px;font-weight:800;margin-bottom:14px}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+.mt{margin-top:16px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(120%);background:var(--navy);color:#fff;padding:12px 18px;border-radius:11px;font-size:14px;font-weight:600;z-index:60;transition:.28s;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+.toast.on{transform:translateX(-50%) translateY(0)}
+.empty{text-align:center;padding:44px 20px;color:var(--n400)}
+.note{background:var(--teal-50);border-left:3px solid var(--teal);padding:11px 14px;border-radius:0 9px 9px 0;font-size:13px;color:var(--navy-600);margin-bottom:18px}
+.timeline{border-left:2px solid var(--n200);padding-left:16px;margin-left:4px;display:flex;flex-direction:column;gap:14px}
+.tl-item{position:relative;font-size:13.5px}
+.tl-item:before{content:'';position:absolute;left:-22px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--teal)}
+.tl-item .t{font-size:11px;color:var(--n400);font-weight:600}
+.bottomnav{display:none}
+.mobile-hide{}
+@media(max-width:900px){
+  .side{display:none}
+  .main{padding:16px 14px 100px;max-width:100%}
+  .g3,.g2{grid-template-columns:1fr}
+  .bottomnav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--n200);z-index:30;padding:6px 4px calc(8px + env(safe-area-inset-bottom))}
+  .bottomnav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:700;color:var(--n400);padding:5px 2px}
+  .bottomnav button.on{color:var(--teal-700)}
+  .tenant{display:none}
+  h2.page{font-size:19.5px}
+  table{font-size:12.5px}
+  th,td{padding:9px 8px;white-space:normal;word-break:break-word}
+  th{font-size:9.5px}
+  .mobile-hide{display:none}
+  .tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN — magic link real ============ -->
+<div id="login">
+  <div class="login-card">
+    <div class="wordmark" style="font-size:19px;color:var(--navy)">
+      <svg class="iso" viewBox="0 0 26 30" fill="none"><path d="M13 1 24.3 7.5v15L13 29 1.7 22.5v-15L13 1Z" stroke="#33AEB3" stroke-width="2"/><circle cx="13" cy="15" r="3.2" fill="#0D364A"/><circle cx="13" cy="5.6" r="1.9" fill="#33AEB3"/><circle cx="21.2" cy="19.8" r="1.9" fill="#33AEB3"/><circle cx="4.8" cy="19.8" r="1.9" fill="#33AEB3"/></svg>
+      KRAIBE <span style="font-weight:600;color:var(--teal-700)">CLIENTES</span>
+    </div>
+    <h1>Ingresa a tu condominio</h1>
+    <p>Te enviamos un enlace de acceso a tu correo. Sin contraseñas.</p>
+    <form id="loginForm">
+      <div class="field">
+        <label>Correo</label>
+        <input id="email" type="email" required placeholder="tu@correo.cl" autocomplete="email"/>
+      </div>
+      <button class="btn btn-primary" type="submit" id="loginBtn">Enviar enlace de acceso</button>
+    </form>
+    <p id="loginMsg"></p>
+    <p class="legal">Autenticación por magic link (Supabase Auth) · Sin contraseñas<br/>© 2026 Inversiones Kraibe SpA · RUT 78.249.497-K</p>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app">
+  <div class="topbar">
+    <div class="wordmark">
+      <svg class="iso" viewBox="0 0 26 30" fill="none"><path d="M13 1 24.3 7.5v15L13 29 1.7 22.5v-15L13 1Z" stroke="#33AEB3" stroke-width="2"/><circle cx="13" cy="15" r="3.2" fill="#7FCED1"/><circle cx="13" cy="5.6" r="1.9" fill="#33AEB3"/><circle cx="21.2" cy="19.8" r="1.9" fill="#33AEB3"/><circle cx="4.8" cy="19.8" r="1.9" fill="#33AEB3"/></svg>
+      KRAIBE <span style="font-weight:600;color:var(--teal-300)">CLIENTES</span>
+    </div>
+    <div class="tenant" id="tenantLabel">—</div>
+    <span class="badge b-teal" id="perfilBadge" style="margin-left:8px"></span>
+    <div class="avatar" id="avatarIni">—</div>
+  </div>
+  <div class="layout">
+    <aside class="side" id="side"></aside>
+    <main class="main" id="view">Cargando…</main>
+  </div>
+  <nav class="bottomnav" id="bnav"></nav>
+</div>
+
+<div class="mask" id="mask"><div class="modal" id="modal"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// ============================================================================
+// CONFIG — reemplazar antes de servir. Ambos valores son públicos por diseño
+// (la seguridad real la da RLS en Postgres, no el secreto de la anon key).
+// ============================================================================
+const CONFIG = {
+  SUPABASE_URL: 'https://vtmutlmtwsxpldvrtnbx.supabase.co',
+  SUPABASE_ANON_KEY: 'REEMPLAZAR_CON_LA_ANON_KEY_REAL',
+};
+
+const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY, {
+  auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
+});
+
+// ============================================================================
+// AUTH — magic link real, sin selector de rol de demostración
+// ============================================================================
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('email').value;
+  const btn = document.getElementById('loginBtn');
+  const msg = document.getElementById('loginMsg');
+  btn.disabled = true; btn.textContent = 'Enviando…'; msg.textContent = '';
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname },
+  });
+
+  if (error) {
+    msg.className = 'err-msg';
+    msg.textContent = error.message;
+    btn.disabled = false; btn.textContent = 'Enviar enlace de acceso';
+  } else {
+    msg.className = 'ok-msg';
+    msg.textContent = 'Revisa tu correo y toca el enlace para entrar.';
+    btn.textContent = 'Enlace enviado';
+  }
+});
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    boot(session);
+  } else {
+    document.getElementById('login').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+});
+
+// ============================================================================
+// ESTADO EN MEMORIA (poblado con datos REALES de Supabase, nunca mock)
+// ============================================================================
+let STATE = { user: null, perfil: null, comunidadId: null, comunidadNombre: '', tenantId: null };
+let TAB = 'inicio';
+
+const MENU = {
+  RESIDENTE:      [['inicio','Inicio'],['accesos','Accesos'],['requerimientos','Requerimientos'],['documentos','Documentos']],
+  PROPIETARIO:    [['inicio','Inicio'],['accesos','Accesos'],['requerimientos','Requerimientos'],['documentos','Documentos']],
+  ADMINISTRACION: [['inicio','Inicio'],['gestion','Bandeja de gestión'],['accesos','Accesos'],['requerimientos','Requerimientos'],['documentos','Documentos']],
+};
+
+async function boot(session) {
+  STATE.user = session.user;
+
+  let { data: perfiles, error } = await supabase
+    .from('cli_perfiles')
+    .select('perfil, comunidad_id, tenant_id, cli_comunidades(nombre)')
+    .eq('user_id', session.user.id);
+
+  // Nexo de acreditación, caso "invitación llegó después del primer login":
+  // si no tiene perfil todavía, intenta reclamar una invitación pendiente
+  // que coincida con su correo antes de mostrar el estado vacío.
+  if (!error && (!perfiles || perfiles.length === 0)) {
+    const { data: reclamado } = await supabase.rpc('cli_reclamar_invitacion');
+    if (reclamado) {
+      ({ data: perfiles, error } = await supabase
+        .from('cli_perfiles')
+        .select('perfil, comunidad_id, tenant_id, cli_comunidades(nombre)')
+        .eq('user_id', session.user.id));
+    }
+  }
+
+  if (error || !perfiles || perfiles.length === 0) {
+    document.getElementById('view').innerHTML = `
+      <div class="empty">
+        <h3>Tu cuenta aún no tiene una unidad asignada</h3>
+        <p>Contacta a la administración de tu comunidad. Correo autenticado: ${session.user.email}</p>
+        <button class="btn btn-ghost btn-sm mt" id="btnReintentar">Reintentar</button>
+      </div>`;
+    document.getElementById('side').innerHTML = '';
+    document.getElementById('btnReintentar')?.addEventListener('click', () => boot(session));
+    return;
+  }
+
+  const p = perfiles[0]; // MVP: una comunidad por usuario (multi-comunidad es semana 3)
+  STATE.perfil = p.perfil;
+  STATE.comunidadId = p.comunidad_id;
+  STATE.tenantId = p.tenant_id;
+  STATE.comunidadNombre = p.cli_comunidades?.nombre ?? '';
+
+  document.getElementById('tenantLabel').textContent = STATE.comunidadNombre;
+  document.getElementById('perfilBadge').textContent =
+    { RESIDENTE: 'Residente', PROPIETARIO: 'Propietario', ADMINISTRACION: 'Administración' }[STATE.perfil] || STATE.perfil;
+  document.getElementById('avatarIni').textContent = (session.user.email || '??').slice(0, 2).toUpperCase();
+
+  renderNav();
+  await renderView();
+}
+
+function renderNav() {
+  const items = MENU[STATE.perfil] || MENU.RESIDENTE;
+  document.getElementById('side').innerHTML =
+    '<div class="cap">Comunidad</div>' +
+    items.map(([k, l]) => `<button class="nav ${k === TAB ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('') +
+    `<div class="cap" style="margin-top:auto">Sesión</div><button class="nav" id="logoutBtn">Cerrar sesión</button>`;
+
+  document.getElementById('bnav').innerHTML =
+    items.slice(0, 5).map(([k, l]) => `<button class="${k === TAB ? 'on' : ''}" data-tab="${k}">${l}</button>`).join('');
+
+  document.querySelectorAll('[data-tab]').forEach((btn) =>
+    btn.addEventListener('click', () => { TAB = btn.dataset.tab; renderNav(); renderView(); window.scrollTo(0, 0); }),
+  );
+  document.getElementById('logoutBtn')?.addEventListener('click', () => supabase.auth.signOut());
+}
+
+async function renderView() {
+  const view = document.getElementById('view');
+  view.innerHTML = '<p class="empty">Cargando…</p>';
+  try {
+    view.innerHTML = await VIEWS[TAB]();
+    attachViewHandlers();
+  } catch (err) {
+    view.innerHTML = `<p class="err-msg">Error cargando la vista: ${err.message}</p>`;
+    console.error(err);
+  }
+}
+
+// ============================================================================
+// VISTAS — todas leen Supabase real, con RLS activa. Cero mock.
+// ============================================================================
+
+const VIEWS = {
+  async inicio() {
+    const desde7dias = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [accesosSemana, accesosOk, reqAbiertos, dispositivos] = await Promise.all([
+      supabase.from('cli_access_events').select('id', { count: 'exact', head: true }).gte('created_at', desde7dias),
+      supabase.from('cli_access_events').select('id', { count: 'exact', head: true }).gte('created_at', desde7dias).eq('resultado', 'CONCEDIDO'),
+      supabase.from('cli_requerimientos').select('id', { count: 'exact', head: true }).neq('estado', 'CERRADO'),
+      supabase.from('cli_dispositivos').select('id, nombre, estado'),
+    ]);
+
+    const total = accesosSemana.count ?? 0;
+    const tasa = total > 0 ? Math.round(((accesosOk.count ?? 0) / total) * 100) : null;
+
+    return `
+      <h2 class="page">Estado del servicio</h2>
+      <p class="sub">Últimos 7 días · datos en vivo desde tu registro de accesos y requerimientos</p>
+      <div class="grid g3">
+        <div class="card kpi"><div class="lbl">Accesos esta semana</div><div class="val">${total}</div></div>
+        <div class="card kpi"><div class="lbl">Tasa de éxito</div><div class="val">${tasa !== null ? tasa + '%' : '—'}</div></div>
+        <div class="card kpi"><div class="lbl">Requerimientos abiertos</div><div class="val">${reqAbiertos.count ?? 0}</div></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>Estado de dispositivos</h3>
+        ${(dispositivos.data || []).map(d => `
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--n100)">
+            <span>${d.nombre}</span>
+            <span class="badge ${d.estado === 'EN_LINEA' ? 'b-ok' : d.estado === 'PROXIMAMENTE' ? 'b-warn' : 'b-info'}">${d.estado}</span>
+          </div>`).join('') || '<p class="empty">Sin dispositivos.</p>'}
+      </div>
+      <p class="note" style="margin-top:16px">El informe semanal completo en PDF llega en la semana del 1 al 5 de septiembre — esta vista muestra lo que ya está disponible hoy.</p>`;
+  },
+
+  async accesos() {
+    const [{ data: dispositivos, error: e1 }, { data: eventos, error: e2 }] = await Promise.all([
+      supabase.from('cli_dispositivos').select('id, nombre, tipo, zona, estado').order('tipo'),
+      supabase.from('cli_access_events').select('id, created_at, resultado, cli_dispositivos(nombre)').order('created_at', { ascending: false }).limit(15),
+    ]);
+
+    return `
+      <h2 class="page">Accesos</h2>
+      <p class="sub">Apertura remota de dispositivos habilitados para tu unidad</p>
+      ${e1 ? `<p class="err-msg">${e1.message}</p>` : ''}
+      <div class="grid g2">
+        ${(dispositivos || []).map(d => `
+          <div class="card dev" data-dispositivo-id="${d.id}">
+            <div class="dev-head">
+              <div><h3>${d.nombre}</h3><div class="meta">${d.zona || ''}</div></div>
+              ${d.estado === 'PROXIMAMENTE' ? '<span class="badge b-warn">Próximamente</span>' : ''}
+            </div>
+            <button class="open-btn" data-open="${d.id}" ${d.estado === 'PROXIMAMENTE' ? 'disabled' : ''}>
+              ${d.estado === 'PROXIMAMENTE' ? 'No disponible aún' : 'Abrir'}
+            </button>
+            <p class="err-msg hide" data-error-for="${d.id}"></p>
+          </div>`).join('') || '<p class="empty">No hay dispositivos habilitados para tu unidad.</p>'}
+      </div>
+      <div class="tbl-wrap" style="margin-top:18px">
+        <h3 style="padding:0 10px 12px">Registro de accesos</h3>
+        ${e2 ? `<p class="err-msg">${e2.message}</p>` : ''}
+        <table>
+          <thead><tr><th>Fecha</th><th>Dispositivo</th><th>Resultado</th></tr></thead>
+          <tbody>${(eventos || []).map(ev => `
+            <tr>
+              <td class="mono">${new Date(ev.created_at).toLocaleString('es-CL', { timeZone: 'America/Santiago' })}</td>
+              <td>${ev.cli_dispositivos?.nombre ?? '—'}</td>
+              <td><span class="badge ${ev.resultado === 'CONCEDIDO' ? 'b-ok' : 'b-err'}">${ev.resultado}</span></td>
+            </tr>`).join('')}</tbody>
+        </table>
+      </div>`;
+  },
+
+  async requerimientos() {
+    const { data: reqs, error } = await supabase
+      .from('cli_requerimientos')
+      .select('id, tipo, asunto, estado, created_at')
+      .order('created_at', { ascending: false });
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div><h2 class="page">Requerimientos</h2><p class="sub">Reclamos, felicitaciones, comentarios, mejoras y solicitudes de apoyo</p></div>
+        <button class="btn btn-primary" style="width:auto" id="btnNewReq">+ Nuevo</button>
+      </div>
+      ${error ? `<p class="err-msg">${error.message}</p>` : ''}
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Asunto</th><th>Estado</th><th class="mobile-hide">Fecha</th><th></th></tr></thead>
+          <tbody>${(reqs || []).map(r => `
+            <tr>
+              <td>${r.tipo}</td><td>${r.asunto}</td>
+              <td><span class="badge b-info">${r.estado}</span></td>
+              <td class="mono mobile-hide">${new Date(r.created_at).toLocaleDateString('es-CL')}</td>
+              <td><span class="link" data-req-detail="${r.id}">Ver</span></td>
+            </tr>`).join('') || '<tr><td colspan="5" class="empty">Sin requerimientos todavía.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+  },
+
+  async gestion() {
+    const { data: reqs, error } = await supabase
+      .from('cli_requerimientos')
+      .select('id, tipo, asunto, estado, sla_vence_at, cli_unidades(numero, torre)')
+      .neq('estado', 'CERRADO')
+      .order('sla_vence_at', { ascending: true, nullsFirst: false });
+
+    const { data: invitaciones } = await supabase
+      .from('cli_invitaciones')
+      .select('id, email, perfil, usado_at, expires_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div><h2 class="page">Bandeja de gestión</h2><p class="sub">Requerimientos con impacto en la administración</p></div>
+        <button class="btn btn-primary" style="width:auto" id="btnInvitar">+ Invitar acceso</button>
+      </div>
+
+      <div class="tbl-wrap" style="margin-bottom:16px">
+        <h3 style="padding:0 10px 12px">Invitaciones recientes</h3>
+        <table>
+          <thead><tr><th>Correo</th><th>Perfil</th><th>Estado</th></tr></thead>
+          <tbody>${(invitaciones || []).map(inv => {
+            const vencida = new Date(inv.expires_at) < new Date();
+            const estadoInv = inv.usado_at ? 'Acreditada' : vencida ? 'Vencida' : 'Pendiente';
+            const claseInv = inv.usado_at ? 'b-ok' : vencida ? 'b-err' : 'b-warn';
+            return `<tr><td>${inv.email}</td><td>${inv.perfil}</td><td><span class="badge ${claseInv}">${estadoInv}</span></td></tr>`;
+          }).join('') || '<tr><td colspan="3" class="empty">Sin invitaciones enviadas todavía.</td></tr>'}</tbody>
+        </table>
+      </div>
+
+      ${error ? `<p class="err-msg">${error.message}</p>` : ''}
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Unidad</th><th>Asunto</th><th class="mobile-hide">SLA</th><th>Estado</th><th></th></tr></thead>
+          <tbody>${(reqs || []).map(r => {
+            const vencido = r.sla_vence_at && new Date(r.sla_vence_at) < new Date();
+            return `<tr>
+              <td class="mono">${r.cli_unidades ? (r.cli_unidades.torre ? r.cli_unidades.torre + '-' : '') + r.cli_unidades.numero : '—'}</td>
+              <td>${r.asunto}</td>
+              <td class="mono mobile-hide ${vencido ? 'err-msg' : ''}">${r.sla_vence_at ? new Date(r.sla_vence_at).toLocaleString('es-CL', { timeZone: 'America/Santiago' }) : '—'}</td>
+              <td><span class="badge b-warn">${r.estado}</span></td>
+              <td><span class="link" data-respond="${r.id}">Responder</span></td>
+            </tr>`;
+          }).join('') || '<tr><td colspan="5" class="empty">Bandeja vacía.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+  },
+
+  async documentos() {
+    const { data: docs, error } = await supabase
+      .from('cli_documentos')
+      .select('id, nombre, tipo, vigente_desde')
+      .order('vigente_desde', { ascending: false });
+
+    return `
+      <h2 class="page">Documentos</h2>
+      <p class="sub">Contratos, procedimientos y reglamentos vigentes</p>
+      ${error ? `<p class="err-msg">${error.message}</p>` : ''}
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Documento</th><th>Tipo</th><th class="mobile-hide">Vigente desde</th></tr></thead>
+          <tbody>${(docs || []).map(d => `
+            <tr><td><b>${d.nombre}</b></td><td><span class="badge b-teal">${d.tipo}</span></td><td class="mono mobile-hide">${d.vigente_desde ?? '—'}</td></tr>
+          `).join('') || '<tr><td colspan="3" class="empty">Sin documentos publicados.</td></tr>'}</tbody>
+        </table>
+      </div>`;
+  },
+};
+
+// ============================================================================
+// ACCIONES REALES — todas escriben en Supabase con RLS activa. La apertura de
+// hardware pasa por la Edge Function access-open, nunca directo desde el HTML.
+// ============================================================================
+
+function attachViewHandlers() {
+  // Apertura real de dispositivo
+  document.querySelectorAll('[data-open]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const dispositivoId = btn.dataset.open;
+      const errorEl = document.querySelector(`[data-error-for="${dispositivoId}"]`);
+      btn.disabled = true; btn.textContent = 'Enviando comando…'; errorEl.classList.add('hide');
+
+      const { data, error } = await supabase.functions.invoke('access-open', { body: { dispositivo_id: dispositivoId } });
+
+      if (error || !data?.ok) {
+        btn.disabled = false; btn.textContent = 'Abrir';
+        errorEl.textContent = data?.detail || error?.message || 'No se pudo abrir el dispositivo.';
+        errorEl.classList.remove('hide');
+      } else {
+        btn.classList.add('done'); btn.textContent = 'Abierto';
+        toast('Comando enviado · evento registrado');
+        setTimeout(() => { btn.classList.remove('done'); btn.disabled = false; btn.textContent = 'Abrir'; }, 3000);
+      }
+    });
+  });
+
+  // Nuevo requerimiento
+  document.getElementById('btnNewReq')?.addEventListener('click', openNewReqModal);
+
+  // Ver detalle de requerimiento
+  document.querySelectorAll('[data-req-detail]').forEach((el) =>
+    el.addEventListener('click', () => openReqDetailModal(el.dataset.reqDetail)),
+  );
+
+  // Responder (bandeja de gestión)
+  document.querySelectorAll('[data-respond]').forEach((el) =>
+    el.addEventListener('click', () => openRespondModal(el.dataset.respond)),
+  );
+
+  // Invitar nuevo acceso (solo visible/efectivo para ADMINISTRACION, la
+  // policy cli_invitaciones_admin_all igual lo bloquearía si alguien más lo intentara)
+  document.getElementById('btnInvitar')?.addEventListener('click', openInvitarModal);
+}
+
+async function openInvitarModal() {
+  const { data: unidades } = await supabase.from('cli_unidades').select('id, torre, numero').order('numero');
+
+  document.getElementById('modal').innerHTML = `
+    <h3>Invitar acceso</h3>
+    <p class="sub">La persona recibirá el magic link normal; en cuanto inicie sesión con ese correo, quedará acreditada automáticamente.</p>
+    <div class="field"><label>Correo</label><input id="invEmail" type="email" placeholder="persona@correo.cl" required/></div>
+    <div class="field"><label>Perfil</label>
+      <select id="invPerfil">
+        <option value="RESIDENTE">Residente</option>
+        <option value="PROPIETARIO">Propietario</option>
+        <option value="ADMINISTRACION">Administración</option>
+      </select></div>
+    <div class="field"><label>Unidad (opcional para Administración)</label>
+      <select id="invUnidad">
+        <option value="">— Sin unidad (solo Administración) —</option>
+        ${(unidades || []).map(u => `<option value="${u.id}">${u.torre ? u.torre + '-' : ''}${u.numero}</option>`).join('')}
+      </select></div>
+    <div class="field"><label>Rol en la unidad</label>
+      <select id="invRolUnidad">
+        <option value="ARRENDATARIO">Arrendatario</option>
+        <option value="PROPIETARIO">Propietario</option>
+        <option value="AUTORIZADO">Autorizado</option>
+      </select></div>
+    <div class="row mt"><button class="btn btn-ghost" id="modalCancel">Cancelar</button><button class="btn btn-primary" id="modalSave">Enviar invitación</button></div>`;
+  document.getElementById('mask').classList.add('on');
+  document.getElementById('modalCancel').onclick = closeModal;
+  document.getElementById('modalSave').onclick = async () => {
+    const email = document.getElementById('invEmail').value.trim();
+    const perfil = document.getElementById('invPerfil').value;
+    const unidadId = document.getElementById('invUnidad').value || null;
+    const rolUnidad = document.getElementById('invRolUnidad').value;
+
+    if (!email) { toast('El correo es obligatorio.'); return; }
+
+    const { error } = await supabase.from('cli_invitaciones').insert({
+      email, perfil,
+      comunidad_id: STATE.comunidadId,
+      unidad_id: unidadId,
+      rol_unidad: unidadId ? rolUnidad : null,
+      invitado_por: STATE.user.id,
+    });
+
+    if (error) { toast('Error: ' + error.message); return; }
+    closeModal();
+    toast('Invitación creada. Pídele a la persona que ingrese su correo en el login.');
+    renderView();
+  };
+}
+
+async function openNewReqModal() {
+  const { data: unidad } = await supabase.from('cli_residentes_unidad').select('unidad_id').limit(1).maybeSingle();
+  if (!unidad) { toast('No se encontró tu unidad.'); return; }
+
+  document.getElementById('modal').innerHTML = `
+    <h3>Nuevo requerimiento</h3>
+    <div class="field"><label>Tipo</label>
+      <select id="reqTipo">
+        <option value="RECLAMO">Reclamo</option><option value="FELICITACION">Felicitación</option>
+        <option value="COMENTARIO">Comentario</option><option value="MEJORA">Oportunidad de mejora</option>
+        <option value="APOYO">Solicitud de apoyo</option>
+      </select></div>
+    <div class="field"><label>Asunto</label><input id="reqAsunto" placeholder="Describe en una línea"/></div>
+    <div class="field"><label>Detalle</label><textarea id="reqDetalle" rows="4"></textarea></div>
+    <div class="row mt"><button class="btn btn-ghost" id="modalCancel">Cancelar</button><button class="btn btn-primary" id="modalSave">Enviar</button></div>`;
+  document.getElementById('mask').classList.add('on');
+  document.getElementById('modalCancel').onclick = closeModal;
+  document.getElementById('modalSave').onclick = async () => {
+    const tipo = document.getElementById('reqTipo').value;
+    const asunto = document.getElementById('reqAsunto').value;
+    const detalle = document.getElementById('reqDetalle').value;
+    if (!asunto) { toast('El asunto es obligatorio.'); return; }
+
+    const { error } = await supabase.from('cli_requerimientos').insert({
+      tenant_id: STATE.comunidadId,
+      comunidad_id: STATE.comunidadId,
+      unidad_id: unidad.unidad_id,
+      autor_user_id: STATE.user.id,
+      tipo, asunto, detalle,
+      sla_vence_at: calcularSla(tipo),
+    });
+
+    if (error) { toast('Error: ' + error.message); return; }
+    closeModal(); toast('Requerimiento creado'); renderView();
+  };
+}
+
+async function openReqDetailModal(id) {
+  const { data: req } = await supabase.from('cli_requerimientos').select('id, tipo, asunto, detalle, estado').eq('id', id).maybeSingle();
+  const { data: mensajes } = await supabase.from('cli_req_mensajes').select('cuerpo, created_at').eq('requerimiento_id', id).order('created_at');
+
+  document.getElementById('modal').innerHTML = `
+    <h3>${req?.tipo ?? ''} · ${req?.asunto ?? ''}</h3>
+    <span class="badge b-info">${req?.estado ?? ''}</span>
+    <div class="card mt">${req?.detalle ?? ''}</div>
+    <div class="timeline mt">
+      ${(mensajes || []).map(m => `<div class="tl-item"><div class="t">${new Date(m.created_at).toLocaleString('es-CL', { timeZone: 'America/Santiago' })}</div>${m.cuerpo}</div>`).join('') || '<p class="empty">Sin respuesta todavía.</p>'}
+    </div>
+    <div class="row mt"><button class="btn btn-ghost" id="modalCancel">Cerrar</button></div>`;
+  document.getElementById('mask').classList.add('on');
+  document.getElementById('modalCancel').onclick = closeModal;
+}
+
+async function openRespondModal(id) {
+  document.getElementById('modal').innerHTML = `
+    <h3>Responder requerimiento</h3>
+    <div class="field"><label>Estado</label>
+      <select id="respEstado">
+        <option value="EN_GESTION">En gestión</option><option value="RESUELTO">Resuelto</option>
+        <option value="DERIVADO_COMITE">Derivado a comité</option><option value="CERRADO">Cerrado</option>
+      </select></div>
+    <div class="field"><label>Respuesta visible al residente</label><textarea id="respTexto" rows="4"></textarea></div>
+    <div class="row mt"><button class="btn btn-ghost" id="modalCancel">Cancelar</button><button class="btn btn-primary" id="modalSave">Guardar y notificar</button></div>`;
+  document.getElementById('mask').classList.add('on');
+  document.getElementById('modalCancel').onclick = closeModal;
+  document.getElementById('modalSave').onclick = async () => {
+    const estado = document.getElementById('respEstado').value;
+    const cuerpo = document.getElementById('respTexto').value;
+    if (!cuerpo) { toast('La respuesta no puede estar vacía.'); return; }
+
+    // RLS exige perfil ADMINISTRACION de la comunidad — si el usuario no
+    // califica, este UPDATE afecta 0 filas (no hay chequeo de rol extra aquí).
+    const { error: e1 } = await supabase.from('cli_requerimientos').update({ estado }).eq('id', id);
+    const { error: e2 } = await supabase.from('cli_req_mensajes').insert({ requerimiento_id: id, autor_user_id: STATE.user.id, cuerpo, visible_residente: true });
+
+    if (e1 || e2) { toast('Error: ' + (e1 || e2).message); return; }
+    closeModal(); toast('Respuesta guardada'); renderView();
+  };
+}
+
+function calcularSla(tipo) {
+  const horas = { RECLAMO: 24, APOYO: 24, MEJORA: 72, COMENTARIO: null, FELICITACION: null }[tipo];
+  if (!horas) return null;
+  let restante = horas;
+  const cursor = new Date();
+  while (restante > 0) {
+    cursor.setHours(cursor.getHours() + 1);
+    const clt = new Date(cursor.toLocaleString('en-US', { timeZone: 'America/Santiago' }));
+    if (clt.getDay() !== 0) restante -= 1; // excluye domingos, §3.6
+  }
+  return cursor.toISOString();
+}
+
+function closeModal() { document.getElementById('mask').classList.remove('on'); }
+document.getElementById('mask').addEventListener('click', (e) => { if (e.target.id === 'mask') closeModal(); });
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.classList.remove('on'), 2600);
+}
+</script>
+</body>
+</html>
